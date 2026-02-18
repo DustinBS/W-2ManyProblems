@@ -1,19 +1,19 @@
-import { IRS_LIMITS_2026 } from '../engine/retirementMatch';
-import { Card, NumberInput, ToggleGroup, fieldSetter } from './Inputs';
+import { Card, NumberInput, CurrencyInput, ToggleGroup, fieldSetter } from './Inputs';
 
-export default function DeductionsPanel({ state, dispatch }) {
+export default function DeductionsPanel({ state, dispatch, irsLimits }) {
   const set = (field) => fieldSetter(dispatch, field);
 
   return (
     <Card title="Pre-Tax Deductions">
       <div className="space-y-4">
-        <NumberInput
-          label="Annual Medical Insurance Premium"
+        <CurrencyInput
+          label="Medical Insurance Premium"
           value={state.medicalPremium}
           onChange={set('medicalPremium')}
           min={0}
           step={100}
           helpText="Pre-tax payroll deduction for health insurance"
+          payPeriod={state.payPeriod}
         />
 
         <div className="space-y-2">
@@ -27,16 +27,48 @@ export default function DeductionsPanel({ state, dispatch }) {
             ]}
           />
 
-          <NumberInput
-            label="Annual HSA Contribution"
+          <CurrencyInput
+            label="HSA Contribution"
             value={state.hsaContribution}
             onChange={set('hsaContribution')}
             min={0}
-            max={state.hsaAccountType === 'family' ? IRS_LIMITS_2026.hsaFamily : IRS_LIMITS_2026.hsaIndividual}
+            max={state.hsaAccountType === 'family' ? irsLimits.hsaFamily : irsLimits.hsaIndividual}
             step={100}
-            helpText={`2026 limit: ${state.hsaAccountType === 'family' ? '$' + IRS_LIMITS_2026.hsaFamily.toLocaleString() : '$' + IRS_LIMITS_2026.hsaIndividual.toLocaleString()}`}
+            helpText={`${state.timelineYear} limit: ${state.hsaAccountType === 'family' ? '$' + irsLimits.hsaFamily.toLocaleString() : '$' + irsLimits.hsaIndividual.toLocaleString()}`}
+            payPeriod={state.payPeriod}
           />
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <CurrencyInput
+            label="Dental Premium"
+            value={state.dentalPremium}
+            onChange={set('dentalPremium')}
+            min={0}
+            step={50}
+            helpText="Dental insurance"
+            payPeriod={state.payPeriod}
+          />
+          <CurrencyInput
+            label="Vision Premium"
+            value={state.visionPremium}
+            onChange={set('visionPremium')}
+            min={0}
+            step={50}
+            helpText="Vision insurance"
+            payPeriod={state.payPeriod}
+          />
+        </div>
+
+        <CurrencyInput
+          label="Other Pre-Tax Fees"
+          value={state.otherPreTaxFees}
+          onChange={set('otherPreTaxFees')}
+          min={0}
+          step={50}
+          helpText="Other pre-tax payroll deductions (life ins, commuter, etc.)"
+          payPeriod={state.payPeriod}
+        />
       </div>
     </Card>
   );

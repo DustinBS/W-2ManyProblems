@@ -1,6 +1,6 @@
 import { ACTIONS } from '../state/reducer';
-import { MATCHING_TEMPLATES, IRS_LIMITS_2026 } from '../engine/retirementMatch';
-import { Card, NumberInput, SelectInput, ToggleGroup, Checkbox, fieldSetter } from './Inputs';
+import { MATCHING_TEMPLATES } from '../engine/retirementMatch';
+import { Card, NumberInput, CurrencyInput, SelectInput, ToggleGroup, Checkbox, fieldSetter } from './Inputs';
 import { fmt } from '../utils/format';
 
 const TEMPLATE_OPTIONS = MATCHING_TEMPLATES.map((t) => ({
@@ -8,7 +8,7 @@ const TEMPLATE_OPTIONS = MATCHING_TEMPLATES.map((t) => ({
   label: t.name,
 }));
 
-export default function RetirementPanel({ state, dispatch, matchResult }) {
+export default function RetirementPanel({ state, dispatch, matchResult, irsLimits }) {
   const set = (field) => fieldSetter(dispatch, field);
   const selectedTemplate = MATCHING_TEMPLATES.find((t) => t.id === state.matchTemplateId);
 
@@ -40,14 +40,15 @@ export default function RetirementPanel({ state, dispatch, matchResult }) {
           <CustomTiers state={state} dispatch={dispatch} />
         )}
 
-        <NumberInput
-          label={`Your Annual ${state.retirementType === '403b' ? '403(b)' : '401(k)'} Contribution`}
+        <CurrencyInput
+          label={`Your ${state.retirementType === '403b' ? '403(b)' : '401(k)'} Contribution`}
           value={state.employeeContribution}
           onChange={set('employeeContribution')}
           min={0}
-          max={IRS_LIMITS_2026.electiveDeferralLimit + (state.employeeCatchUp ? IRS_LIMITS_2026.catchUpContribution : 0)}
+          max={irsLimits.electiveDeferralLimit + (state.employeeCatchUp ? irsLimits.catchUpContribution : 0)}
           step={500}
-          helpText={`2026 limit: $${IRS_LIMITS_2026.electiveDeferralLimit.toLocaleString()} (under 50) / $${(IRS_LIMITS_2026.electiveDeferralLimit + IRS_LIMITS_2026.catchUpContribution).toLocaleString()} (50+)`}
+          helpText={`${state.timelineYear} limit: $${irsLimits.electiveDeferralLimit.toLocaleString()} (under 50) / $${(irsLimits.electiveDeferralLimit + irsLimits.catchUpContribution).toLocaleString()} (50+)`}
+          payPeriod={state.payPeriod}
         />
 
         <Checkbox
@@ -57,7 +58,7 @@ export default function RetirementPanel({ state, dispatch, matchResult }) {
         />
 
         {matchResult && (
-          <div className="p-3 bg-gray-800/50 rounded border border-gray-800 space-y-1">
+          <div className="p-3 bg-gray-800/40 rounded-lg border border-gray-800/60 space-y-1.5">
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Your contribution</span>
               <span className="text-gray-200 font-mono">{fmt(matchResult.employeeContribution)}</span>
@@ -71,7 +72,7 @@ export default function RetirementPanel({ state, dispatch, matchResult }) {
               <span className="text-gray-100 font-mono">{fmt(matchResult.totalRetirement)}</span>
             </div>
             <div className="text-xs text-gray-500">
-              Unused {state.retirementType}: {fmt(IRS_LIMITS_2026.electiveDeferralLimit - matchResult.employeeContribution)}
+              Unused {state.retirementType}: {fmt(irsLimits.electiveDeferralLimit - matchResult.employeeContribution)}
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { ACTIONS } from '../state/reducer';
-import { Card, NumberInput, ToggleGroup, fieldSetter } from './Inputs';
+import { Card, NumberInput, ToggleGroup, CurrencyInput, fieldSetter } from './Inputs';
 
 export default function IncomePanel({ state, dispatch }) {
   const set = (field) => fieldSetter(dispatch, field);
@@ -30,19 +30,21 @@ export default function IncomePanel({ state, dispatch }) {
 function SimpleMode({ state, set }) {
   return (
     <div className="grid grid-cols-2 gap-4">
-      <NumberInput
-        label="Annual Salary"
+      <CurrencyInput
+        label="Salary"
         value={state.annualSalary}
         onChange={set('annualSalary')}
         min={0}
         step={1000}
+        payPeriod={state.payPeriod}
       />
-      <NumberInput
-        label="Annual Bonus"
+      <CurrencyInput
+        label="Bonus"
         value={state.annualBonus}
         onChange={set('annualBonus')}
         min={0}
         step={500}
+        payPeriod={state.payPeriod}
       />
     </div>
   );

@@ -1,7 +1,8 @@
 import { useReducer, useEffect, useMemo } from 'react';
 import { appReducer, DEFAULT_STATE, ACTIONS } from './state/reducer';
 import { saveState, loadState, clearState } from './state/persistence';
-import { calculateFullTax } from './engine/taxEngine';
+import { calculateFullTax, AVAILABLE_YEARS } from './engine/taxEngine';
+import { getIRSLimits } from './engine/retirementMatch';
 import { calculateTimelineIncome, calculateSimpleIncome } from './engine/incomeTimeline';
 import { calculateEmployerMatch } from './engine/retirementMatch';
 import { calcFIRETarget, calcYearsToFIRE, projectWealth } from './engine/fireCalc';
@@ -15,6 +16,7 @@ import ResultsPanel from './components/ResultsPanel';
 import SyncPanel from './components/SyncPanel';
 import { TaxBracketChart, WealthProjectionChart } from './components/Charts';
 import { Card } from './components/Inputs';
+import { PAY_PERIOD_OPTIONS } from './utils/payPeriod';
 
 function getInitialState() {
   const saved = loadState();
@@ -37,6 +39,9 @@ export default function App() {
     return calculateSimpleIncome(state.annualSalary, state.annualBonus);
   }, [state.incomeMode, state.annualSalary, state.annualBonus, state.timelineEvents, state.timelineYear]);
 
+  // Resolve IRS limits for the selected year
+  const irsLimits = useMemo(() => getIRSLimits(state.timelineYear), [state.timelineYear]);
+
   // Compute employer match
   const matchResult = useMemo(() => {
     return calculateEmployerMatch(
@@ -44,9 +49,10 @@ export default function App() {
       incomeResult.totalGross,
       state.employeeContribution,
       state.customMatchTiers,
-      state.customFlatPercent
+      state.customFlatPercent,
+      state.timelineYear
     );
-  }, [state.matchTemplateId, incomeResult.totalGross, state.employeeContribution, state.customMatchTiers, state.customFlatPercent]);
+  }, [state.matchTemplateId, incomeResult.totalGross, state.employeeContribution, state.customMatchTiers, state.customFlatPercent, state.timelineYear]);
 
   // Compute taxes
   const taxResult = useMemo(() => {
@@ -55,11 +61,16 @@ export default function App() {
       preTax401k: matchResult.employeeContribution,
       hsaContribution: state.hsaContribution,
       medicalPremium: state.medicalPremium,
+      dentalPremium: state.dentalPremium,
+      visionPremium: state.visionPremium,
+      otherPreTaxFees: state.otherPreTaxFees,
       filingStatus: state.filingStatus,
       stateCode: state.stateCode,
       stateOverrideRate: state.useStateOverride ? state.stateOverrideRate : null,
+      taxConfig: state.customTaxConfig && state.customTaxConfig.enabled ? state.customTaxConfig : {},
+      year: state.timelineYear
     });
-  }, [incomeResult.totalGross, matchResult.employeeContribution, state.hsaContribution, state.medicalPremium, state.filingStatus, state.stateCode, state.useStateOverride, state.stateOverrideRate]);
+  }, [incomeResult.totalGross, matchResult.employeeContribution, state.hsaContribution, state.medicalPremium, state.dentalPremium, state.visionPremium, state.otherPreTaxFees, state.filingStatus, state.stateCode, state.useStateOverride, state.stateOverrideRate, state.customTaxConfig, state.timelineYear]);
 
   // Total investments (pre-tax + after-tax)
   const totalInvestments = useMemo(() => {
@@ -95,13 +106,35 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-950">
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur sticky top-0 z-10">
+      <header className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-100 tracking-tight">W-2 Many Problems</h1>
-            <p className="text-xs text-gray-500">US Personal Finance Planner / 2026 Tax Year</p>
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
+               <span>US Personal Finance Planner /</span>
+               <select 
+                 value={state.timelineYear}
+                 onChange={(e) => dispatch({ type: ACTIONS.SET_FIELD, field: 'timelineYear', value: parseInt(e.target.value) })}
+                 className="bg-gray-900 border-none text-gray-400 text-xs py-0 focus:ring-0 cursor-pointer"
+               >
+                 {AVAILABLE_YEARS.map(year => (
+                   <option key={year} value={year}>{year} Tax Year</option>
+                 ))}
+               </select>
+               <span className="text-gray-600">|</span>
+               <select
+                 value={state.payPeriod}
+                 onChange={(e) => dispatch({ type: ACTIONS.SET_FIELD, field: 'payPeriod', value: e.target.value })}
+                 className="bg-gray-900 border-none text-gray-400 text-xs py-0 focus:ring-0 cursor-pointer"
+               >
+                 {PAY_PERIOD_OPTIONS.map(opt => (
+                   <option key={opt.value} value={opt.value}>{opt.label}</option>
+                 ))}
+               </select>
+            </div>
           </div>
-          <div className="text-xs text-gray-600 text-right">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 text-right">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500/60"></span>
             Auto-saved to browser
           </div>
         </div>
@@ -118,12 +151,12 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <DeductionsPanel state={state} dispatch={dispatch} />
-              <RetirementPanel state={state} dispatch={dispatch} matchResult={matchResult} />
+              <DeductionsPanel state={state} dispatch={dispatch} irsLimits={irsLimits} />
+              <RetirementPanel state={state} dispatch={dispatch} matchResult={matchResult} irsLimits={irsLimits} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <AfterTaxPanel state={state} dispatch={dispatch} />
+              <AfterTaxPanel state={state} dispatch={dispatch} irsLimits={irsLimits} />
               <FIREPanel
                 state={state}
                 dispatch={dispatch}
@@ -137,6 +170,7 @@ export default function App() {
               <Card>
                 <TaxBracketChart
                   taxableIncome={taxResult.federalTaxableIncome}
+                  grossIncome={taxResult.grossIncome}
                   filingStatus={state.filingStatus}
                 />
               </Card>
@@ -164,9 +198,9 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-gray-800 mt-12">
+      <footer className="border-t border-gray-800/40 mt-12">
         <div className="max-w-7xl mx-auto px-4 py-4 text-center text-xs text-gray-600">
-          W-2 Many Problems -- Not financial advice. Tax calculations are estimates based on projected 2026 brackets. Consult a CPA for actual tax filing.
+          W-2 Many Problems -- Not financial advice. Tax calculations are estimates based on {state.timelineYear} IRS data. Consult a CPA for actual tax filing.
         </div>
       </footer>
     </div>

@@ -1,4 +1,4 @@
-import { Card, NumberInput, fieldSetter } from './Inputs';
+import { Card, NumberInput, CurrencyInput, fieldSetter } from './Inputs';
 import { fmt, pct } from '../utils/format';
 import { calcFIRETarget, calcYearsToFIRE, calcInvestmentRatios, calcTaxAlpha } from '../engine/fireCalc';
 
@@ -27,12 +27,13 @@ export default function FIREPanel({ state, dispatch, taxResult, totalInvestments
     <Card title="FIRE Planning">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
-          <NumberInput
-            label="Annual Expenses"
+          <CurrencyInput
+            label="Expenses"
             value={state.annualExpenses}
             onChange={set('annualExpenses')}
             min={0}
             step={1000}
+            payPeriod={state.payPeriod}
           />
           <NumberInput
             label="Current Savings"
@@ -76,7 +77,7 @@ export default function FIREPanel({ state, dispatch, taxResult, totalInvestments
           />
         </div>
 
-        <div className="p-4 bg-gray-800/50 rounded border border-gray-800 space-y-2">
+        <div className="p-4 bg-gray-800/40 rounded-lg border border-gray-800/60 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">FIRE Target (3% rule)</span>
             <span className="text-yellow-400 font-mono font-semibold">{fmt(fireTarget)}</span>

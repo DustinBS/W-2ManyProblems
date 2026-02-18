@@ -9,7 +9,7 @@ function CollapsibleSection({ title, children, defaultOpen = false, summary }) {
     <div className="border-b border-gray-800 last:border-0 border-opacity-50">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between py-2 px-1 hover:bg-gray-800/30 transition-colors text-left group"
+        className="w-full flex items-center justify-between py-2.5 px-1.5 hover:bg-gray-800/40 rounded-md transition-colors text-left group"
       >
         <div className="flex items-center gap-2">
            <span className={`text-gray-400 transform transition-transform text-xs ${isOpen ? 'rotate-90' : ''}`}>▶</span>
@@ -33,7 +33,7 @@ export default function ResultsPanel({ taxResult, incomeResult, matchResult, sta
   const totalInvested = totalPreTax + totalAfterTax;
 
   return (
-    <Card title="Results Summary" className="border-blue-900/50 sticky top-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
+    <Card title="Results Summary" className="border-blue-900/40 sticky top-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
       <div className="space-y-1 divide-y divide-gray-800/50">
         
         <CollapsibleSection title="Income" summary={fmt(taxResult.grossIncome)}>
@@ -49,6 +49,9 @@ export default function ResultsPanel({ taxResult, incomeResult, matchResult, sta
         <CollapsibleSection title="Pre-Tax Deductions" summary={fmt(taxResult.totalPreTaxDeductions)}>
           <StatRow label="Medical Insurance" value={fmt(state.medicalPremium)} />
           <StatRow label="HSA Contribution" value={fmt(state.hsaContribution)} />
+          {state.dentalPremium > 0 && <StatRow label="Dental Insurance" value={fmt(state.dentalPremium)} />}
+          {state.visionPremium > 0 && <StatRow label="Vision Insurance" value={fmt(state.visionPremium)} />}
+          {state.otherPreTaxFees > 0 && <StatRow label="Other Pre-Tax Fees" value={fmt(state.otherPreTaxFees)} />}
           <StatRow
             label={`${state.retirementType === '403b' ? '403(b)' : '401(k)'} (employee)`}
             value={fmt(matchResult?.employeeContribution || 0)}
@@ -97,7 +100,7 @@ export default function ResultsPanel({ taxResult, incomeResult, matchResult, sta
              </div>
           </div>
           
-          <div className="flex justify-between items-baseline py-1 mt-2 bg-gray-800/50 p-2 rounded border border-gray-700">
+          <div className="flex justify-between items-baseline py-1 mt-2 bg-gray-800/40 p-2.5 rounded-lg border border-gray-700/60">
              <span className="text-sm font-bold text-white">Liquid</span>
              <div className="text-right">
                <span className="text-white font-mono font-bold">{fmt(taxResult.netIncome - totalAfterTax)}</span>

@@ -1,42 +1,77 @@
-// 2026 US Federal Tax Brackets (estimated)
-// Source: IRS inflation adjustments projected for 2026
+import taxData from '../data/tax_data.json';
 
-export const FEDERAL_BRACKETS_2026 = {
-  single: [
-    { min: 0, max: 11925, rate: 0.10 },
-    { min: 11925, max: 48475, rate: 0.12 },
-    { min: 48475, max: 103350, rate: 0.22 },
-    { min: 103350, max: 197300, rate: 0.24 },
-    { min: 197300, max: 250525, rate: 0.32 },
-    { min: 250525, max: 626350, rate: 0.35 },
-    { min: 626350, max: Infinity, rate: 0.37 },
-  ],
-  mfj: [
-    { min: 0, max: 23850, rate: 0.10 },
-    { min: 23850, max: 96950, rate: 0.12 },
-    { min: 96950, max: 206700, rate: 0.22 },
-    { min: 206700, max: 394600, rate: 0.24 },
-    { min: 394600, max: 501050, rate: 0.32 },
-    { min: 501050, max: 751600, rate: 0.35 },
-    { min: 751600, max: Infinity, rate: 0.37 },
-  ],
+// Default to the latest year available in data if not specified
+export const AVAILABLE_YEARS = Object.keys(taxData).sort();
+const LATEST_YEAR = AVAILABLE_YEARS[AVAILABLE_YEARS.length - 1];
+
+// Map app filing status codes to JSON data keys
+const STATUS_MAP = {
+  single: 'single',
+  mfj: 'married_joint',
+  married_joint: 'married_joint',
+  married_separate: 'married_separate',
+  head_household: 'head_household',
+  widow: 'widow',
 };
 
-export const STANDARD_DEDUCTION_2026 = {
-  single: 15000,
-  mfj: 30000,
-};
+function resolveStatus(filingStatus) {
+  return STATUS_MAP[filingStatus] || filingStatus;
+}
 
-// Social Security wage base estimate for 2026
-export const SS_WAGE_BASE_2026 = 176100;
+/**
+ * Get tax parameters for a specific year
+ * @param {string|number} year 
+ * @returns {object} Tax parameters including formatted brackets
+ */
+export function getTaxParameters(year) {
+  const targetYear = String(year || LATEST_YEAR);
+  const data = taxData[targetYear] || taxData[LATEST_YEAR];
 
-// FICA rates
-export const FICA_RATES = {
-  socialSecurity: 0.062,
-  medicare: 0.0145,
-  additionalMedicare: 0.009, // applies above $200k single / $250k MFJ
-  additionalMedicareThreshold: { single: 200000, mfj: 250000 },
-};
+  // Convert tax-calc bracket format { rate, max } to engine format { min, max, rate }
+  const formattedBrackets = {};
+  for (const [status, brackets] of Object.entries(data.brackets)) {
+    formattedBrackets[status] = brackets.map((b, index) => {
+      const prevMax = index === 0 ? 0 : brackets[index - 1].max;
+      return {
+        min: prevMax,
+        max: b.max > 1e12 ? Infinity : b.max, // Handle simplified infinity
+        rate: b.rate
+      };
+    });
+  }
+
+  // Also create aliases (mfj -> married_joint) for bracket/deduction lookups
+  const bracketAliases = { ...formattedBrackets };
+  if (formattedBrackets.married_joint && !formattedBrackets.mfj) {
+    bracketAliases.mfj = formattedBrackets.married_joint;
+  }
+
+  const deductionMap = data.standard_deduction_map || { single: data.standard_deduction };
+  const deductionAliases = { ...deductionMap };
+  if (deductionMap.married_joint && !deductionMap.mfj) {
+    deductionAliases.mfj = deductionMap.married_joint;
+  }
+
+  return {
+    year: targetYear,
+    brackets: bracketAliases,
+    standardDeduction: deductionAliases,
+    ssWageBase: data.fica.ss_wage_base,
+    ficaRates: {
+      socialSecurity: data.fica.ss_rate,
+      medicare: data.fica.medicare_rate,
+      additionalMedicare: 0.009,
+      additionalMedicareThreshold: { single: 200000, mfj: 250000 } // These rarely change, hardcoded for now or add to JSON later
+    }
+  };
+}
+
+// Default constants for backward compatibility or initial load
+const defaultParams = getTaxParameters(LATEST_YEAR);
+export const FEDERAL_BRACKETS_2026 = defaultParams.brackets;
+export const STANDARD_DEDUCTION_2026 = defaultParams.standardDeduction;
+export const SS_WAGE_BASE_2026 = defaultParams.ssWageBase;
+export const FICA_RATES = defaultParams.ficaRates;
 
 // State income tax data for all 50 states + DC
 // States with no income tax: AK, FL, NV, NH (dividends/interest only until 2025, fully repealed 2025+), SD, TN (repealed 2021), TX, WA, WY
@@ -131,17 +166,21 @@ export function getMarginalFederalRate(taxableIncome, filingStatus = 'single', b
 /**
  * Calculate FICA taxes (Social Security + Medicare)
  */
-export function calcFICA(grossIncome, filingStatus = 'single', wageBaseOverride = null) {
+export function calcFICA(grossIncome, filingStatus = 'single', wageBaseOverride = null, ratesOverride = null) {
   const wageBase = wageBaseOverride || SS_WAGE_BASE_2026;
+  const rates = ratesOverride || FICA_RATES;
+  
   const ssIncome = Math.min(grossIncome, wageBase);
-  const ssTax = ssIncome * FICA_RATES.socialSecurity;
+  const ssTax = ssIncome * rates.socialSecurity;
 
-  const medicareTax = grossIncome * FICA_RATES.medicare;
-  const threshold = FICA_RATES.additionalMedicareThreshold[filingStatus];
+  const medicareTax = grossIncome * rates.medicare;
+  const threshold = rates.additionalMedicareThreshold[filingStatus];
+  // Check if additional medicare applies
   const additionalMedicare =
     grossIncome > threshold
-      ? (grossIncome - threshold) * FICA_RATES.additionalMedicare
+      ? (grossIncome - threshold) * rates.additionalMedicare
       : 0;
+      
   return {
     socialSecurity: ssTax,
     medicare: medicareTax,
@@ -182,26 +221,34 @@ export function calculateFullTax({
   preTax401k = 0,
   hsaContribution = 0,
   medicalPremium = 0,
+  dentalPremium = 0,
+  visionPremium = 0,
+  otherPreTaxFees = 0,
   filingStatus = 'single',
   stateCode = 'WA',
   stateOverrideRate = null,
   taxConfig = {}, // New parameter for config overrides
+  year = null // Tax year, defaults to latest available
 }) {
+  // Get base tax parameters for the year
+  const baseParams = getTaxParameters(year);
+
   // Pre-tax deductions reduce taxable income
-  const totalPreTaxDeductions = preTax401k + hsaContribution + medicalPremium;
+  const totalPreTaxDeductions = preTax401k + hsaContribution + medicalPremium + dentalPremium + visionPremium + otherPreTaxFees;
   const adjustedGross = grossIncome - totalPreTaxDeductions;
 
-  // Standard deduction
-  const standardDeduction = taxConfig.standardDeduction 
-    ? taxConfig.standardDeduction[filingStatus] 
-    : STANDARD_DEDUCTION_2026[filingStatus];
+  // Standard deduction (allow override)
+  // Check if override exists and has the specific status key
+  const standardDeduction = (taxConfig.standardDeduction && taxConfig.standardDeduction[filingStatus] !== undefined)
+    ? taxConfig.standardDeduction[filingStatus]
+    : baseParams.standardDeduction[filingStatus];
   
   const federalTaxableIncome = Math.max(0, adjustedGross - standardDeduction);
 
-  // Federal bracket overrides
-  const federalBrackets = taxConfig.federalBrackets 
-    ? taxConfig.federalBrackets[filingStatus] 
-    : FEDERAL_BRACKETS_2026[filingStatus];
+  // Federal bracket overrides or use year's base brackets
+  const federalBrackets = (taxConfig.federalBrackets && taxConfig.federalBrackets[filingStatus])
+    ? taxConfig.federalBrackets[filingStatus]
+    : baseParams.brackets[filingStatus];
 
   // Federal tax
   const federalTax = calcFederalTax(federalTaxableIncome, filingStatus, federalBrackets);
@@ -209,7 +256,12 @@ export function calculateFullTax({
   const effectiveRate = grossIncome > 0 ? federalTax / grossIncome : 0;
 
   // FICA (allow wage base override)
-  const fica = calcFICA(grossIncome, filingStatus, taxConfig.ssWageBase);
+  const fica = calcFICA(
+    grossIncome, 
+    filingStatus, 
+    taxConfig.ssWageBase || baseParams.ssWageBase,
+    baseParams.ficaRates
+  );
 
   // State tax
 
@@ -237,5 +289,6 @@ export function calculateFullTax({
     stateTax,
     totalTax,
     netIncome,
+    year: baseParams.year
   };
 }

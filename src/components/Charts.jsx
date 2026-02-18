@@ -3,12 +3,14 @@ import { FEDERAL_BRACKETS_2026 } from '../engine/taxEngine';
 
 /**
  * SVG-based bar chart for tax bracket visualization
+ * Shows both gross income (emerald) and taxable income / AGI (blue) on brackets
  */
-export function TaxBracketChart({ taxableIncome, filingStatus }) {
+export function TaxBracketChart({ taxableIncome, grossIncome, filingStatus }) {
   const brackets = FEDERAL_BRACKETS_2026[filingStatus];
-  if (!brackets || taxableIncome <= 0) return null;
+  if (!brackets || (taxableIncome <= 0 && (!grossIncome || grossIncome <= 0))) return null;
 
-  const maxIncome = Math.max(taxableIncome * 1.2, brackets[3]?.max || 200000);
+  const effectiveGross = grossIncome || taxableIncome;
+  const maxIncome = Math.max(effectiveGross * 1.2, brackets[3]?.max || 200000);
 
   return (
     <div className="space-y-2">
@@ -17,10 +19,18 @@ export function TaxBracketChart({ taxableIncome, filingStatus }) {
         {brackets.map((bracket, i) => {
           if (bracket.min >= maxIncome) return null;
           const bracketWidth = Math.min(bracket.max, maxIncome) - bracket.min;
-          const filledWidth = Math.max(0, Math.min(taxableIncome, bracket.max) - bracket.min);
           const widthPct = (bracketWidth / maxIncome) * 100;
-          const filledPct = bracketWidth > 0 ? (filledWidth / bracketWidth) * 100 : 0;
-          const isActive = taxableIncome > bracket.min;
+
+          // Gross income fill (background layer - emerald)
+          const grossFilled = Math.max(0, Math.min(effectiveGross, bracket.max) - bracket.min);
+          const grossPct = bracketWidth > 0 ? (grossFilled / bracketWidth) * 100 : 0;
+
+          // Taxable income fill (foreground layer - blue)
+          const taxFilled = Math.max(0, Math.min(taxableIncome, bracket.max) - bracket.min);
+          const taxPct = bracketWidth > 0 ? (taxFilled / bracketWidth) * 100 : 0;
+
+          const isActiveGross = effectiveGross > bracket.min;
+          const isActiveTax = taxableIncome > bracket.min;
 
           return (
             <div key={i} className="flex items-center gap-2">
@@ -31,9 +41,15 @@ export function TaxBracketChart({ taxableIncome, filingStatus }) {
                 className="h-5 bg-gray-800 rounded overflow-hidden relative"
                 style={{ width: `${Math.max(widthPct, 5)}%` }}
               >
+                {/* Gross income layer (behind) */}
                 <div
-                  className={`h-full rounded transition-all ${isActive ? 'bg-blue-600' : 'bg-gray-700'}`}
-                  style={{ width: `${filledPct}%` }}
+                  className={`absolute inset-y-0 left-0 rounded transition-all ${isActiveGross ? 'bg-emerald-700/50' : 'bg-gray-700'}`}
+                  style={{ width: `${grossPct}%` }}
+                />
+                {/* Taxable income layer (front) */}
+                <div
+                  className={`absolute inset-y-0 left-0 rounded transition-all ${isActiveTax ? 'bg-blue-600' : ''}`}
+                  style={{ width: `${taxPct}%` }}
                 />
               </div>
               <div className="text-xs text-gray-600 font-mono whitespace-nowrap">
@@ -42,6 +58,15 @@ export function TaxBracketChart({ taxableIncome, filingStatus }) {
             </div>
           );
         })}
+      </div>
+      {/* Legend */}
+      <div className="flex gap-4 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-2.5 rounded-sm bg-blue-600" /> Taxable Income
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-2.5 rounded-sm bg-emerald-700/50" /> Gross Income
+        </span>
       </div>
     </div>
   );

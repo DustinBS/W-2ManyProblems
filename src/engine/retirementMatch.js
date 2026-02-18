@@ -6,17 +6,28 @@
  * as a percentage of their gross salary.
  */
 
-// 2026 IRS limits (estimated)
-export const IRS_LIMITS_2026 = {
-  electiveDeferralLimit: 23500, // 401k/403b employee max
-  catchUpContribution: 7500, // age 50+
-  superCatchUp: 11250, // age 60-63 (SECURE 2.0)
-  totalAnnualLimit: 70000, // 415(c) total limit (employee + employer)
-  hsaIndividual: 4300,
-  hsaFamily: 8550,
-  rothIRA: 7000,
-  rothIRACatchUp: 1000,
-};
+import irsLimitsData from '../data/irs_limits.json';
+
+/**
+ * Get IRS limits for a given tax year.
+ * Falls back to the latest available year if the requested year is not found.
+ *
+ * @param {string|number|null} year - Tax year (e.g. 2026 or '2026'). Defaults to latest available year.
+ * @returns {object} IRS limits for the resolved year
+ */
+export function getIRSLimits(year) {
+  const key = year != null ? String(year) : null;
+  if (key && irsLimitsData[key]) {
+    return irsLimitsData[key];
+  }
+  // Fallback to the latest available year
+  const latestYear = Object.keys(irsLimitsData)
+    .sort((a, b) => Number(b) - Number(a))[0];
+  return irsLimitsData[latestYear];
+}
+
+// Backward-compatible constant derived from the JSON data
+export const IRS_LIMITS_2026 = getIRSLimits('2026');
 
 export const MATCHING_TEMPLATES = [
   {
@@ -107,9 +118,11 @@ export const MATCHING_TEMPLATES = [
  * @param {number} employeeContribution - Employee's annual 401k contribution (dollars)
  * @param {Array} customTiers - Custom tiers if templateId is 'custom'
  * @param {number} customFlatPercent - Custom flat contribution % if applicable
+ * @param {string|number|null} year - Tax year for IRS limits (defaults to latest)
  * @returns {{ employerMatch: number, employeeContribution: number, totalRetirement: number, matchDetails: string }}
  */
-export function calculateEmployerMatch(templateId, grossSalary, employeeContribution, customTiers = [], customFlatPercent = 0) {
+export function calculateEmployerMatch(templateId, grossSalary, employeeContribution, customTiers = [], customFlatPercent = 0, year = null) {
+  const limits = getIRSLimits(year);
   const template = MATCHING_TEMPLATES.find((t) => t.id === templateId);
   if (!template) {
     return {
@@ -121,7 +134,7 @@ export function calculateEmployerMatch(templateId, grossSalary, employeeContribu
   }
 
   // Cap employee contribution at IRS limit
-  const cappedContribution = Math.min(employeeContribution, IRS_LIMITS_2026.electiveDeferralLimit);
+  const cappedContribution = Math.min(employeeContribution, limits.electiveDeferralLimit);
   const employeePercent = grossSalary > 0 ? (cappedContribution / grossSalary) * 100 : 0;
 
   let employerMatch = 0;
@@ -153,7 +166,7 @@ export function calculateEmployerMatch(templateId, grossSalary, employeeContribu
   // Cap total employer + employee at the IRS 415(c) limit
   const totalRetirement = Math.min(
     cappedContribution + employerMatch,
-    IRS_LIMITS_2026.totalAnnualLimit
+    limits.totalAnnualLimit
   );
   employerMatch = totalRetirement - cappedContribution;
 

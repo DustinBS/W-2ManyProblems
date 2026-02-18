@@ -1,0 +1,39 @@
+{
+  "2023": {
+    "rothIRA": 6500,
+    "rothIRACatchUp": 1000,
+    "catchUpContribution": 7500,
+    "electiveDeferralLimit": 22500,
+    "totalAnnualLimit": 66000
+  },
+  "2024": {
+    "electiveDeferralLimit": 23000,
+    "catchUpContribution": 7500,
+    "superCatchUp": 11250,
+    "totalAnnualLimit": 69000,
+    "hsaIndividual": 4150,
+    "hsaFamily": 8300,
+    "rothIRA": 7000,
+    "rothIRACatchUp": 1000
+  },
+  "2025": {
+    "electiveDeferralLimit": 23500,
+    "catchUpContribution": 7500,
+    "superCatchUp": 11250,
+    "totalAnnualLimit": 70000,
+    "hsaIndividual": 4300,
+    "hsaFamily": 8550,
+    "rothIRA": 7000,
+    "rothIRACatchUp": 1000
+  },
+  "2026": {
+    "electiveDeferralLimit": 24500,
+    "catchUpContribution": 8000,
+    "superCatchUp": 11250,
+    "totalAnnualLimit": 72000,
+    "hsaIndividual": 4400,
+    "hsaFamily": 8750,
+    "rothIRA": 7500,
+    "rothIRACatchUp": 1100
+  }
+}

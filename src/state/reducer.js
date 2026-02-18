@@ -16,6 +16,7 @@ export const DEFAULT_STATE = {
     { id: 1, effectiveDate: '2026-01-01', baseSalary: 115000, oneTimeBonus: 0 },
   ],
   timelineYear: 2026,
+  payPeriod: 'annual',
 
   // Tax settings
   filingStatus: 'single', // 'single' or 'mfj'
@@ -27,6 +28,9 @@ export const DEFAULT_STATE = {
   medicalPremium: 736, // annual
   hsaContribution: 3400, // annual
   hsaAccountType: 'individual', // 'individual' or 'family'
+  dentalPremium: 0,
+  visionPremium: 0,
+  otherPreTaxFees: 0,
 
   // 401k / 403b
   retirementType: '401k', // '401k' or '403b'
